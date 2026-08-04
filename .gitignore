@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Chroma Database
+chroma_db/
+
+# Environment Variables
+.env
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+chroma_db/
+
+# Local tooling config (machine-specific)
+.codebase-memory/
+
+tripilot_checkpoint.db
+logs/tool_calls.jsonl
+seed/travel_backup.db
