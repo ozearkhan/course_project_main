@@ -303,11 +303,20 @@ LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=<your LangSmith API key>
 LANGSMITH_PROJECT=trippilot
 
-GOOGLE_API_KEY=<your Gemini API key - only needed for the generation eval judge>
+JUDGE_MODEL_NAME=<a different Ollama model than MODEL_NAME, e.g. qwen2.5:7b - used only as the generation-eval judge>
 ```
 
 `LANGSMITH_*` vars enable tracing to LangSmith (see Evaluation & Observability
 below) — the app runs fine without them, tracing is simply skipped.
+
+Ollama itself is a separate runtime, not a pip package, so it isn't in
+`requirements.txt`. Install it from [ollama.com](https://ollama.com), then
+pull both models:
+
+```bash
+ollama pull llama3.1:8b
+ollama pull qwen2.5:7b
+```
 
 ---
 

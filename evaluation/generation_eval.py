@@ -1,13 +1,18 @@
 import json
 import os
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
 from rag_service import get_policy_answer
 
 GOLDEN_QA_PATH = os.path.join("seed", "eval", "golden_qa.jsonl")
-JUDGE_MODEL = os.getenv("GEMINI_JUDGE_MODEL", "gemini-2.5-flash")
+
+# Deliberately a DIFFERENT model than MODEL_NAME (the app's answer-generation
+# model) so the judge isn't grading its own homework. Any locally pulled
+# Ollama model works - default assumes `ollama pull qwen2.5:7b`.
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
+JUDGE_MODEL_NAME = os.getenv("JUDGE_MODEL_NAME", "qwen2.5:7b")
 
 JUDGE_INSTRUCTIONS = """You are grading whether a travel assistant's answer is faithful and \
 grounded in the reference answer for a question about travel policies, visas, \
@@ -40,8 +45,9 @@ def load_golden_qa(path=GOLDEN_QA_PATH):
 
 
 def get_judge():
-    return ChatGoogleGenerativeAI(
-        model=JUDGE_MODEL,
+    return ChatOllama(
+        model=JUDGE_MODEL_NAME,
+        base_url=OLLAMA_BASE_URL,
         temperature=0,
     ).with_structured_output(FaithfulnessGrade)
 
@@ -63,7 +69,7 @@ def grade_answer(judge, question: str, reference_answer: str, actual_answer: str
 
 
 # ==========================================================
-# Full sweep over the golden set (needs Ollama + Gemini key)
+# Full sweep over the golden set (needs both Ollama models pulled)
 # ==========================================================
 
 def run_generation_eval(examples=None):
@@ -104,7 +110,7 @@ def run_generation_eval(examples=None):
 
 
 # ==========================================================
-# Hallucinated-visa-requirements case (needs only the Gemini key)
+# Hallucinated-visa-requirements case (needs only the judge model pulled)
 # Proves the judge actually catches the domain's flagship failure mode:
 # a wrong visa answer that would strand a traveler at the airport.
 # ==========================================================

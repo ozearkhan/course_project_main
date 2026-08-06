@@ -68,7 +68,26 @@ throwaway Chroma directory, and add the before/after comparison here.
 
 ## 3. Generation evaluation (LLM-as-judge)
 
-*Not started yet — Phase D.*
+**System under test:** `rag_service.get_policy_answer()` (`MODEL_NAME`, e.g. `llama3.1:8b`).
+**Judge:** a *different* local Ollama model (`JUDGE_MODEL_NAME`, e.g.
+`qwen2.5:7b`) so the judge isn't grading its own homework — no external API
+or account needed, reproducible by any student with Ollama installed.
+
+`evaluation/generation_eval.py::run_generation_eval()` sweeps all 45 golden
+questions, grades each answer 1-5 for faithfulness/groundedness against
+`reference_answer`, and reports the overall average plus a separate average
+for the 12 visa-only questions.
+
+`hallucinated_visa_case()` is an explicit adversarial check (not left to
+chance): it feeds the judge a deliberately wrong France-visa answer ("365
+days", "no passport needed") to prove the judge actually catches the domain's
+flagship failure mode — a hallucinated visa answer that could strand a
+traveler at the airport.
+
+*Real results: pending a run on a machine with both `MODEL_NAME` and
+`JUDGE_MODEL_NAME` pulled via Ollama.*
+
+- [SCREENSHOT NEEDED: not applicable - this eval runs entirely locally, no LangSmith UI involved unless traced separately]
 
 ---
 
