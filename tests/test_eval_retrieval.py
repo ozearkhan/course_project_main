@@ -1,10 +1,12 @@
 from evaluation.retrieval_eval import compute_metrics
 
-# Baseline thresholds - initial values, tighten once real metrics are observed
-# on a machine with huggingface.co access (blocked in the dev sandbox used to
-# write this test).
-MIN_RECALL_AT_K = 0.6
-MIN_MRR = 0.5
+# Calibrated against a real run (2026-08-04): recall_at_k=1.0, mrr=0.989,
+# n_examples=45, k=4. Thresholds keep a margin below that for the CI gate.
+# precision_at_k is not gated: with exactly one relevant doc per question and
+# k=4, perfect recall caps precision at 1/k=0.25 by construction - it isn't a
+# quality signal on its own here.
+MIN_RECALL_AT_K = 0.85
+MIN_MRR = 0.8
 
 
 def test_retrieval_metrics_computed():

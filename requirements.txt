@@ -10,6 +10,7 @@ langgraph
 langgraph-checkpoint-sqlite
 langsmith
 mcp<2
+langchain-google-genai
 requests
 tenacity
 chromadb

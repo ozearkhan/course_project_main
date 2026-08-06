@@ -339,8 +339,11 @@ python run_graph.py
 
 ### 4. Resume After Human Approval
 
+`run_graph.py` prints a `Thread ID` and pauses at the approval interrupt. Pass
+that same ID to `resume_graph.py` to resume that exact conversation:
+
 ```bash
-python resume_graph.py
+python resume_graph.py <thread_id>
 ```
 
 ---
