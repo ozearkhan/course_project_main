@@ -1,3 +1,5 @@
+from langsmith import traceable
+
 from langgraph_workflow.state import TripState
 
 from memory.memory_service import (
@@ -6,6 +8,7 @@ from memory.memory_service import (
 )
 
 
+@traceable
 def load_traveler_context(state: TripState):
 
     preferences = load_preferences(

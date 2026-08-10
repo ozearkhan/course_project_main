@@ -359,7 +359,15 @@ python resume_graph.py <thread_id>
 
 # Testing
 
-Run the complete test suite:
+`tests/test_langgraph.py::test_happy_path` calls the real MCP server (it
+doesn't mock `call_tool` like the other LangGraph tests do), so start the mock
+API first:
+
+```bash
+uvicorn mock_travel_api.main:app --reload
+```
+
+Then, in another terminal, run the complete test suite:
 
 ```bash
 python -m pytest

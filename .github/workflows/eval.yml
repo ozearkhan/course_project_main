@@ -1,0 +1,45 @@
+name: Eval Quality Gate
+
+# Data quality gate on model behavior - the same discipline as dbt tests.
+# Runs the LLM-free evals (retrieval + scenario) on every push/PR. No secrets
+# required, so a forked repo runs green out of the box. Generation eval needs a
+# local Ollama runtime, which GitHub-hosted runners don't have, so it stays a
+# local-only gate (see evaluation/README.md).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  eval-gate:
+    runs-on: ubuntu-latest
+
+    env:
+      DOCUMENT_PATH: ./seed/docs
+      CHROMA_DB: ./chroma_db
+      # rag_service.py reads these at import time; retrieval eval never invokes
+      # the LLM, so the values just need to be present, not reachable.
+      MODEL_NAME: llama3.1:8b
+      OLLAMA_BASE_URL: http://localhost:11434
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build SQLite seed data
+        run: python seed/load_data.py
+
+      - name: Build Chroma vector DB
+        run: python ingest.py
+
+      - name: Run LLM-free eval gates (retrieval + scenarios)
+        run: pytest tests/test_eval_retrieval.py tests/test_eval_scenarios.py -v

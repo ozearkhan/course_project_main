@@ -61,6 +61,16 @@ def compute_metrics(examples=None, k: int = TOP_K):
     }
 
 
+def compare_k_configs(k_values=(1, 4, 8), examples=None):
+    """Re-run retrieval eval across k values - the 'change one variable, re-run'
+    comparison. k is chosen over chunk size because it needs no re-ingest;
+    chunk-size comparison would require rebuilding Chroma into a throwaway dir."""
+
+    examples = examples if examples is not None else load_golden_qa()
+
+    return [compute_metrics(examples=examples, k=k) for k in k_values]
+
+
 # ==========================================================
 # Optional LangSmith experiment (best-effort, never blocks the gate)
 # ==========================================================
