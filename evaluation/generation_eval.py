@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from rag_service import get_policy_answer
 
 GOLDEN_QA_PATH = os.path.join("seed", "eval", "golden_qa.jsonl")
+JUDGE_CALIBRATION_PATH = os.path.join("seed", "eval", "judge_calibration.jsonl")
 
 # Deliberately a DIFFERENT model than MODEL_NAME (the app's answer-generation
 # model) so the judge isn't grading its own homework. Any locally pulled
@@ -125,7 +126,60 @@ def hallucinated_visa_case():
     )
 
 
+# ==========================================================
+# Judge calibration (LLM-as-a-judge lesson 6.3): before trusting the judge,
+# check it agrees with a small hand-labeled set of faithful/not-faithful pairs.
+# ==========================================================
+
+def load_calibration(path=JUDGE_CALIBRATION_PATH):
+
+    examples = []
+
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            examples.append(json.loads(line))
+
+    return examples
+
+
+def calibrate_judge(examples=None):
+
+    examples = examples if examples is not None else load_calibration()
+    judge = get_judge()
+
+    agree = 0
+    disagreements = []
+
+    for ex in examples:
+
+        grade = grade_answer(
+            judge,
+            ex["question"],
+            ex["reference_answer"],
+            ex["candidate_answer"],
+        )
+
+        if grade["faithful"] == ex["human_faithful"]:
+            agree += 1
+        else:
+            disagreements.append({
+                "question": ex["question"],
+                "human_faithful": ex["human_faithful"],
+                "judge_faithful": grade["faithful"],
+                "judge_explanation": grade["explanation"],
+            })
+
+    n = len(examples)
+
+    return {
+        "n": n,
+        "agreement_rate": agree / n if n else 0.0,
+        "disagreements": disagreements,
+    }
+
+
 if __name__ == "__main__":
+    print("calibration:", {k: v for k, v in calibrate_judge().items() if k != "disagreements"})
     summary = run_generation_eval()
     print({k: v for k, v in summary.items() if k != "results"})
     print("hallucinated_visa_case:", hallucinated_visa_case())
