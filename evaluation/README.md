@@ -1,4 +1,4 @@
-# Module 6 — Evaluation & Observability (Student Walkthrough)
+# Module 6 — Evaluation & Observability 
 
 **Scenario: make quality measurable, then make it enforceable.**
 
@@ -9,8 +9,7 @@ This module fixes that: you'll trace every run, put real numbers on retrieval
 and answer quality, assert the booking workflow's outcomes, and wire a CI gate
 so a regression can't merge silently.
 
-Follow the steps in order. Each step is framed **Why → What → How → What you
-should see**, with a spot to drop a screenshot for your submission.
+
 
 ---
 
@@ -26,7 +25,7 @@ should see**, with a spot to drop a screenshot for your submission.
 
 ---
 
-## Prerequisites (one-time setup)
+## Prerequisites (one-time setup, if prevously done please ignore)
 
 ```bash
 git clone <your fork>
@@ -50,11 +49,11 @@ Your `.env` needs: `MODEL_NAME`, `OLLAMA_BASE_URL`, `CHROMA_DB`, `DOCUMENT_PATH`
 
 ## Step 1 — Trace the whole graph with LangSmith
 
-**Why.** You can't improve what you can't see. Tracing records every step of a
+You can't improve what you can't see. Tracing records every step of a
 run — each graph node, each MCP tool call, each LLM call — as a nested tree you
 can inspect, time, and compare in the LangSmith UI.
 
-**What.** All 8 LangGraph nodes (`collect_requirements`, `load_traveler_context`,
+All 8 LangGraph nodes (`collect_requirements`, `load_traveler_context`,
 `search`, `assemble_itinerary`, `budget_check`, `present_options`,
 `execute_booking`, `confirm`), the MCP tool layer (`mcp_client.call_tool`), and
 the RAG retriever (`rag_service.retrieve_documents`) are decorated with
@@ -64,7 +63,7 @@ LangSmith **Thread** because `run_graph.py`/`resume_graph.py` pass the same
 `thread_id` in both `config["configurable"]` (checkpointing) and
 `config["metadata"]` (thread grouping).
 
-**How.**
+
 ```bash
 # terminal 1
 uvicorn mock_travel_api.main:app --port 8000
@@ -76,20 +75,19 @@ python resume_graph.py <thread_id>  # paste that Thread ID
 **What you should see.** In the `trippilot` project in LangSmith: one trace whose
 tree shows every node + tool span; a Threads tab grouping the run and the resume
 into one conversation; the prebuilt Dashboard populating Traces/Tools panels.
-
-- [ ] [SCREENSHOT: single trace tree — all node spans + MCP tool spans + retriever span under one root run]
-- [ ] [SCREENSHOT: Threads tab — one thread containing both the run and resume traces]
-- [ ] [SCREENSHOT: project Dashboard — Traces / Tools / Run Types panels populated]
+![Image](https://i.ibb.co/RpNVqDfL/image.png)
+![Image](https://i.ibb.co/DPC0PfBY/image.png)
+![Image](https://i.ibb.co/cSQSDM66/image.png)
 
 ---
 
 ## Step 2 — Retrieval evaluation (is it finding the right doc?)
 
-**Why.** RAG is only as good as its retrieval. If the retriever hands the LLM the
+RAG is only as good as its retrieval. If the retriever hands the LLM the
 wrong document, no amount of prompting saves the answer. So we measure it
 directly against a golden set.
 
-**What.** `seed/eval/golden_qa.jsonl` holds 45 question → expected-source-doc →
+`seed/eval/golden_qa.jsonl` holds 45 question → expected-source-doc →
 reference-answer triples drawn from the real `seed/docs/`. For each question,
 `retrieval_eval.py::compute_metrics()` retrieves the top-k chunks and checks
 whether the expected document's filename is among them, computing:
@@ -100,7 +98,7 @@ whether the expected document's filename is among them, computing:
 
 These are computed locally with no LLM and no network, so they can gate CI.
 
-**How.**
+
 ```bash
 pytest tests/test_eval_retrieval.py -v
 python -m evaluation.retrieval_eval          # prints the raw metric dict
@@ -126,22 +124,24 @@ ambiguous questions — the precision "drop" is just the 1/k artifact, not a
 quality loss. k=8 is identical to k=4, so retrieving wider only adds noise and
 latency. **Conclusion: k=4 is the sweet spot, and that's what ships.**
 
-- [ ] [SCREENSHOT: terminal showing `test_eval_retrieval.py` passing]
+![Image](https://i.ibb.co/b52XCjfV/image.png)
+![Image](https://i.ibb.co/6cfS5Mzq/image.png)
+![Image](https://i.ibb.co/d0YfRJbj/image.png)
 
 ---
 
 ## Step 3 — Generation evaluation (are the answers faithful?)
 
-**Why.** Retrieval can be perfect and the model can still hallucinate. For a
+ Retrieval can be perfect and the model can still hallucinate. For a
 travel agent the flagship failure is a **wrong visa answer** — that strands a
 traveler at the airport. So we grade answer faithfulness, and prove the grader
 catches hallucinations.
 
-**What — and the key discipline.** We use **LLM-as-judge**, but with a twist that
+**the key discipline.** We use **LLM-as-judge**, but with a twist that
 avoids the classic bias: the judge is a *different* local model
 (`JUDGE_MODEL_NAME`, e.g. `qwen2.5:7b`) than the app's answer model
 (`MODEL_NAME`, e.g. `llama3.1:8b`) — so the model isn't grading its own homework.
-No external API or paid account is involved. `generation_eval.py`:
+
 
 - `run_generation_eval()` — grades all 45 answers 1–5 for faithfulness against
   the reference; reports overall + visa-only averages.
@@ -155,7 +155,13 @@ No external API or paid account is involved. `generation_eval.py`:
   discipline — if the judge can't match obvious human calls, its 4.2/5 average
   means nothing.
 
-**How.**
+**Runtime note.** This suite is intentionally long-running because it executes
+58 sequential live LLM checks (45 golden-set cases + 12 judge-calibration
+cases + 1 adversarial hallucination case). On local Ollama hardware this can
+naturally take 40-50+ minutes. Run it before release/final QA and after major
+prompt, retrieval, or model changes; skip it during quick local iteration.
+
+
 ```bash
 pytest tests/test_eval_generation.py -v
 python -m evaluation.generation_eval
@@ -168,16 +174,15 @@ python -m evaluation.generation_eval
 judge noise doesn't flake the gate, but a real regression (which drops scores to
 ~1–2) still trips it.
 
-- [ ] [SCREENSHOT: terminal showing `test_eval_generation.py` passing]
 
 ---
 
 ## Step 4 — End-to-end scenario evaluation (does the workflow reach the right outcome?)
 
-**Why.** Individual pieces can pass while the whole conversation still goes wrong.
+ Individual pieces can pass while the whole conversation still goes wrong.
 So we run complete booking conversations and assert the final outcome.
 
-**What.** `seed/eval/booking_scenarios.jsonl` holds 10 scripted conversations
+ `seed/eval/booking_scenarios.jsonl` holds 10 scripted conversations
 covering every branch: happy-path bookings, human rejections (incl. after a
 revision), budget escalation (one hitting the 2-revision cap), a revise-then-book
 case, and a 409-conflict-then-book case. `scenario_eval.py::run_all_scenarios()`
@@ -189,7 +194,7 @@ scripted decision, and classifies the end state as `booked` / `rejected` /
 deliberate unit-test choice that isolates the graph's *decision logic*. The real
 MCP↔HTTP stack is proven separately by `tests/test_langgraph.py::test_happy_path`
 (happy path, no mocks) and `tests/test_integration_booking.py` (a real-stack
-smoke test that hits the live `POST /bookings` for a genuine 409 + idempotency
+smoke test that hits the live `POST /bookings` for a ge 409 + idempotency
 replay).
 
 **How.**
@@ -201,16 +206,15 @@ python -m evaluation.scenario_eval
 **What you should see:** 10/10 scenarios match their expected outcome, including
 the conflict scenario re-presenting for a second approval after the 409.
 
-- [ ] [SCREENSHOT: terminal showing `test_eval_scenarios.py` passing]
 
 ---
 
 ## Step 5 — Auto-generated report
 
-**Why.** A report you hand-edit drifts from reality. The metrics table should be
+ A report you hand-edit drifts from reality. The metrics table should be
 produced *from the actual eval runs*, every time.
 
-**What / How.**
+
 ```bash
 python -m evaluation.generate_report      # writes evaluation/EVAL_RESULTS.md
 ```
@@ -219,50 +223,25 @@ python -m evaluation.generate_report      # writes evaluation/EVAL_RESULTS.md
 from their return values — never edited by hand. That file is your metric-table +
 comparison-run deliverable.
 
-- [ ] [SCREENSHOT: `EVAL_RESULTS.md` rendered, showing all three metric tables]
-
 ---
 
 ## Step 6 — CI quality gate + the deliberate regression
 
-**Why.** Measuring quality is only half the job; the point is to make it
+Measuring quality is only half the job; the point is to make it
 *enforceable* so a regression can't merge. Frame it like a dbt test: a data
 quality gate on model behavior.
 
-**What.** `.github/workflows/eval.yml` runs on every push/PR. It builds the seed
+ `.github/workflows/eval.yml` runs on every push/PR. It builds the seed
 DB + Chroma and runs the **LLM-free** gates (retrieval + scenario evals). Those
 need no secrets, so your fork's CI runs green out of the box. Generation eval
 needs a local Ollama runtime, which GitHub-hosted runners don't have, so it stays
-a local-only gate (documented, not silently dropped).
+a local-only gate.
 
-**How — prove the gate works (the deliberate regression).**
-1. On `main`, push — CI is **green**. Screenshot it.
+**prove the gate works (the deliberate regression).**
+1. On `main`, push — CI is **green**.
 2. On a branch, worsen something real — e.g. drop `k` to a value that hurts
    recall, or lower a threshold below the true score — and open a PR. CI goes
-   **red**. Screenshot it.
+   **red**. 
 3. Revert on `main` — green again.
 
-- [ ] [SCREENSHOT: CI green on main]
-- [ ] [SCREENSHOT: CI red on the sabotage branch's PR]
-
 ---
-
-## Development & data policy (the honesty rule)
-
-This repo was authored in a locked-down environment where outbound network to
-`huggingface.co` (embedding model) and `api.smith.langchain.com` (LangSmith) is
-blocked. **Rule:** the authoring machine is for writing code only. **No metric
-enters `EVAL_RESULTS.md` unless it came from a real run on a network-capable
-machine with Ollama running.** `generate_report.py` writes the file from live
-eval output only — nothing is hand-typed or faked.
-
----
-
-## Acceptance criteria checklist
-
-- [x] LangSmith tracing shows the full graph with tool spans (Step 1)
-- [x] Retrieval eval: Precision@k / Recall@k / MRR + comparison run (Step 2)
-- [x] Generation eval: faithfulness + the hallucinated-visa case (Step 3)
-- [x] End-to-end eval: 10 scenarios assert outcomes (Step 4)
-- [x] Eval report (markdown) with metric table + comparison (`EVAL_RESULTS.md`)
-- [ ] Red CI on the sabotage branch, green on main (Step 6 — run the demo)
