@@ -37,3 +37,4 @@ chroma_db/
 tripilot_checkpoint.db
 logs/tool_calls.jsonl
 seed/travel_backup.db
+evaluation/.cache/

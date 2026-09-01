@@ -1,3 +1,5 @@
+import pytest
+
 from evaluation.retrieval_eval import compute_metrics
 
 # Calibrated against a real run (2026-08-04): recall_at_k=1.0, mrr=0.989,
@@ -9,9 +11,15 @@ MIN_RECALL_AT_K = 0.85
 MIN_MRR = 0.8
 
 
-def test_retrieval_metrics_computed():
+# Module-scoped fixture so the 45-question sweep (45 embeddings + Chroma
+# searches) runs once and is shared by both tests below, instead of each
+# test recomputing it from scratch (was 90 redundant embedding calls).
+@pytest.fixture(scope="module")
+def metrics():
+    return compute_metrics()
 
-    metrics = compute_metrics()
+
+def test_retrieval_metrics_computed(metrics):
 
     assert metrics["n_examples"] == 45
     assert 0.0 <= metrics["recall_at_k"] <= 1.0
@@ -19,9 +27,7 @@ def test_retrieval_metrics_computed():
     assert 0.0 <= metrics["mrr"] <= 1.0
 
 
-def test_retrieval_quality_gate():
-
-    metrics = compute_metrics()
+def test_retrieval_quality_gate(metrics):
 
     assert metrics["recall_at_k"] >= MIN_RECALL_AT_K, (
         f"Recall@k dropped to {metrics['recall_at_k']:.2f}, "

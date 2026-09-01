@@ -170,6 +170,19 @@ judge noise doesn't flake the gate, but a real regression (which drops scores to
 
 - [ ] [SCREENSHOT: terminal showing `test_eval_generation.py` passing]
 
+**Faster demo/CI re-runs.** `run_generation_eval()` caches generated answers in
+`evaluation/.cache/generation_answer_cache.json` keyed by `MODEL_NAME` + question,
+so re-running only re-judges (the cache misses automatically if `MODEL_NAME`
+changes; delete the file to force a full regeneration). Judge calls are
+parallelized (`MAX_JUDGE_WORKERS`, default 4). For a quick demo/CI pass over a
+representative subset instead of all 45, set `EVAL_SAMPLE_SIZE` (e.g. `15`) —
+every visa question is always kept regardless of sample size, and the full 45
+remains the default when the env var is unset:
+
+```bash
+EVAL_SAMPLE_SIZE=15 pytest tests/test_eval_generation.py -v
+```
+
 ---
 
 ## Step 4 — End-to-end scenario evaluation (does the workflow reach the right outcome?)
@@ -196,6 +209,15 @@ replay).
 ```bash
 pytest tests/test_eval_scenarios.py -v
 python -m evaluation.scenario_eval
+```
+
+Each of the 10 scenarios is its own parametrized pytest test (rather than one
+test looping all 10), so they can be distributed across `pytest-xdist` workers
+since `call_tool` is already mocked and each scenario uses its own isolated
+checkpointer/thread_id:
+
+```bash
+pytest tests/test_eval_scenarios.py -n auto -v
 ```
 
 **What you should see:** 10/10 scenarios match their expected outcome, including

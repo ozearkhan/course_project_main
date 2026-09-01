@@ -1,12 +1,26 @@
-from evaluation.scenario_eval import run_all_scenarios
+import pytest
+
+from evaluation.scenario_eval import load_booking_scenarios, run_scenario
+
+SCENARIOS = load_booking_scenarios()
 
 
-def test_all_booking_scenarios_match_expected_outcome():
+# Parametrized per scenario (rather than one test looping all 10) so each
+# scenario is independently distributable across pytest-xdist workers
+# (`pytest tests/test_eval_scenarios.py -n auto`) - call_tool is already
+# mocked and each scenario uses its own InMemorySaver/thread_id, so there's
+# no shared state blocking parallel execution. Same assertion as before:
+# every scenario's actual outcome must equal its expected outcome.
+@pytest.mark.parametrize(
+    "scenario",
+    SCENARIOS,
+    ids=[s["scenario_name"] for s in SCENARIOS],
+)
+def test_booking_scenario_matches_expected_outcome(scenario):
 
-    results = run_all_scenarios()
+    actual_outcome = run_scenario(scenario)
 
-    assert len(results) == 10
-
-    mismatches = [r for r in results if not r["match"]]
-
-    assert not mismatches, f"Scenario outcome mismatches: {mismatches}"
+    assert actual_outcome == scenario["expected_outcome"], (
+        f"{scenario['scenario_name']}: expected {scenario['expected_outcome']}, "
+        f"got {actual_outcome}"
+    )

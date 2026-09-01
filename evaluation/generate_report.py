@@ -56,7 +56,10 @@ def _generation_section():
 
     from evaluation.generation_eval import run_generation_eval, hallucinated_visa_case
 
-    summary = run_generation_eval()
+    # sample_size=0 forces the full 45 regardless of a stray EVAL_SAMPLE_SIZE
+    # env var - the honesty rule requires the official report reflect the
+    # full golden set, never the fast/demo subset.
+    summary = run_generation_eval(sample_size=0)
     hallucination = hallucinated_visa_case()
 
     return "\n".join([
