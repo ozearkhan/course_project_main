@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "trippilot": "./langgraph_workflow/graph.py:builder"
+  },
+  "env": ".env"
+}

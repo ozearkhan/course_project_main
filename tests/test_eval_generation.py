@@ -4,9 +4,10 @@ from evaluation.generation_eval import (
     calibrate_judge,
 )
 
-# Calibrated against two real runs (llama3.1:8b app + qwen2.5:7b judge):
+# Calibrated against real runs (llama3.1:8b app + qwen2.5:7b judge):
 #   2026-08-06: faithfulness=4.33, visa=3.83
 #   2026-08-10: faithfulness=4.20, visa=3.83  (n=45, visa n=12)
+#   2026-09-01: faithfulness=4.47, visa=4.33, calibration agreement=1.0 (n=45, visa n=12)
 # Faithfulness drifts with LLM variance; visa was stable. Thresholds sit well
 # below the observed range so normal judge noise doesn't flake the gate, while
 # a real prompt/retrieval regression (which drops these to ~1-2) still trips it.

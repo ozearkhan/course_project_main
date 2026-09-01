@@ -22,3 +22,7 @@ pydantic
 sqlalchemy
 pytest
 pytest-xdist
+
+# Optional: `langgraph dev` local Studio UI for visually walking the graph
+# with students (node-by-node, HITL interrupt, thread state) - see langgraph.json
+langgraph-cli[inmem]

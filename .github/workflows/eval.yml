@@ -42,4 +42,4 @@ jobs:
         run: python ingest.py
 
       - name: Run LLM-free eval gates (retrieval + scenarios)
-        run: pytest tests/test_eval_retrieval.py tests/test_eval_scenarios.py -n auto -v
+        run: pytest tests/test_eval_retrieval.py tests/test_eval_scenarios.py -v

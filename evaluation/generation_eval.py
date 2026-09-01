@@ -68,28 +68,24 @@ def load_golden_qa(path=GOLDEN_QA_PATH):
 
 
 def sample_examples(examples, sample_size=None):
-    """Representative subset for demo/CI runs. Every visa question is kept
-    regardless of sample_size, since the visa-hallucination signal must never
-    be sampled away. Deterministic (no randomness) so it's reproducible."""
+    """Representative subset for demo/CI runs - an even stride across the
+    full ordered golden set (which is grouped by category) so a small sample
+    still spans multiple categories, instead of just the first N in file
+    order. Deterministic (no randomness) so it's reproducible. The
+    hallucinated_visa_case() adversarial probe always runs independently of
+    this sampling - it's a hardcoded case, not drawn from golden_qa.jsonl."""
 
-    if not sample_size or sample_size >= len(examples):
+    if not sample_size:
         return examples
 
-    sample_size = int(sample_size)
+    sample_size = int(sample_size)  # os.getenv() gives a str - cast before comparing
 
-    visa = [e for e in examples if e["expected_source_doc"].endswith("_visa.md")]
-    non_visa = [e for e in examples if not e["expected_source_doc"].endswith("_visa.md")]
+    if sample_size >= len(examples):
+        return examples
 
-    n_visa = min(len(visa), sample_size)
-    remaining = sample_size - n_visa
+    step = max(1, len(examples) // sample_size)
 
-    if remaining > 0 and non_visa:
-        step = max(1, len(non_visa) // remaining)
-        picked_non_visa = non_visa[::step][:remaining]
-    else:
-        picked_non_visa = []
-
-    return visa[:n_visa] + picked_non_visa
+    return examples[::step][:sample_size]
 
 
 def _load_answer_cache():
