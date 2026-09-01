@@ -1,0 +1,5 @@
+{"question": "What is the best time of year to visit Tokyo?", "expected_source_doc": "tokyo.md", "reference_answer": "Spring (March to May) for cherry blossom season and autumn (October to November) for colorful foliage; summer is warm and humid, winter is cold and dry."}
+{"question": "How long can I stay in France on a tourist Schengen visa?", "expected_source_doc": "france_visa.md", "reference_answer": "Up to 90 days within any 180-day period."}
+{"question": "When is a TripPilot booking considered confirmed?", "expected_source_doc": "booking_policy.md", "reference_answer": "Only after successful payment is received, a confirmation email is sent, a unique booking reference number is generated, and the supplier confirms availability."}
+{"question": "What is the star rating of the Pullman Paris Tour Eiffel?", "expected_source_doc": "paris_hotels.md", "reference_answer": "4-star."}
+{"question": "How early should I arrive at the airport for an international flight?", "expected_source_doc": "airport_faq.md", "reference_answer": "3 hours before departure."}

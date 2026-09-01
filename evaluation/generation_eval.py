@@ -18,11 +18,6 @@ MODEL_NAME = os.getenv("MODEL_NAME")
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL")
 JUDGE_MODEL_NAME = os.getenv("JUDGE_MODEL_NAME", "qwen2.5:7b")
 
-# Optional demo/CI subset - full 45 stays the default when unset.
-# Includes every visa question regardless of sample size, since the
-# visa-hallucination signal must never be sampled away.
-EVAL_SAMPLE_SIZE = os.getenv("EVAL_SAMPLE_SIZE")
-
 # Bounded concurrency for judge calls - the judge model may not benefit from
 # high concurrency unless Ollama is configured with OLLAMA_NUM_PARALLEL > 1,
 # but this is still a no-cost lever to try.
@@ -65,27 +60,6 @@ def load_golden_qa(path=GOLDEN_QA_PATH):
             examples.append(json.loads(line))
 
     return examples
-
-
-def sample_examples(examples, sample_size=None):
-    """Representative subset for demo/CI runs - an even stride across the
-    full ordered golden set (which is grouped by category) so a small sample
-    still spans multiple categories, instead of just the first N in file
-    order. Deterministic (no randomness) so it's reproducible. The
-    hallucinated_visa_case() adversarial probe always runs independently of
-    this sampling - it's a hardcoded case, not drawn from golden_qa.jsonl."""
-
-    if not sample_size:
-        return examples
-
-    sample_size = int(sample_size)  # os.getenv() gives a str - cast before comparing
-
-    if sample_size >= len(examples):
-        return examples
-
-    step = max(1, len(examples) // sample_size)
-
-    return examples[::step][:sample_size]
 
 
 def _load_answer_cache():
@@ -151,11 +125,9 @@ def grade_answer(judge, question: str, reference_answer: str, actual_answer: str
 # Full sweep over the golden set (needs both Ollama models pulled)
 # ==========================================================
 
-def run_generation_eval(examples=None, sample_size=None):
+def run_generation_eval(examples=None):
 
     examples = examples if examples is not None else load_golden_qa()
-    sample_size = sample_size if sample_size is not None else EVAL_SAMPLE_SIZE
-    examples = sample_examples(examples, sample_size)
 
     judge = get_judge()
     cache = _load_answer_cache()
@@ -262,8 +234,17 @@ def calibrate_judge(examples=None):
 
 
 if __name__ == "__main__":
-    print("calibration:", {k: v for k, v in calibrate_judge().items() if k != "disagreements"})
-    summary = run_generation_eval()
+    import sys
+
+    demo = "--demo" in sys.argv
+
+    if not demo:
+        print("calibration:", {k: v for k, v in calibrate_judge().items() if k != "disagreements"})
+
+    # --demo: same golden_qa.jsonl, just a 5-question stride slice - no
+    # second file/function to keep in sync with the real 45.
+    examples = load_golden_qa()[::9][:5] if demo else None
+    summary = run_generation_eval(examples=examples)
     print({k: v for k, v in summary.items() if k != "results"})
     print("hallucinated_visa_case:", hallucinated_visa_case())
     print("call_counts:", get_call_counts())

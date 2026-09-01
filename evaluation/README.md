@@ -47,6 +47,38 @@ Your `.env` needs: `MODEL_NAME`, `OLLAMA_BASE_URL`, `CHROMA_DB`, `DOCUMENT_PATH`
 
 ---
 
+## Live demo walkthrough (fast path)
+
+For presenting to students live, skip the full 45-question suite (~40-50 min)
+and run this sequence instead - all real evals, just smaller/faster ones.
+Total time: a few minutes.
+
+```bash
+# 1. Start the mock API (separate terminal, leave running)
+uvicorn mock_travel_api.main:app --port 8000
+
+# 2. Retrieval eval - already fast, no LLM involved, run in full
+pytest tests/test_eval_retrieval.py -v
+
+# 3. Generation eval - same golden_qa.jsonl, just a 5-question stride slice
+python -m evaluation.generation_eval --demo
+
+# 4. Scenario eval - already sub-second, run in full
+pytest tests/test_eval_scenarios.py -v
+
+# 5. Graph trace, for visually walking the node-by-node flow with students
+langgraph dev                       # opens LangGraph Studio in the browser
+# or, for a LangSmith trace instead/as well:
+python run_graph.py                 # prints a "Thread ID: ..." then pauses for approval
+python resume_graph.py <thread_id>
+```
+
+Use the full `tests/test_eval_generation.py` (all 45) and `python -m
+evaluation.generate_report` only when you need the official, honesty-rule
+numbers (release/final QA) - not for a live walkthrough.
+
+---
+
 ## Step 1 — Trace the whole graph with LangSmith
 
 You can't improve what you can't see. Tracing records every step of a
@@ -179,14 +211,21 @@ judge noise doesn't flake the gate, but a real regression (which drops scores to
 `evaluation/.cache/generation_answer_cache.json` keyed by `MODEL_NAME` + question,
 so re-running only re-judges (the cache misses automatically if `MODEL_NAME`
 changes; delete the file to force a full regeneration). Judge calls are
-parallelized (`MAX_JUDGE_WORKERS`, default 4). For a quick demo/CI pass over a
-representative subset instead of all 45, set `EVAL_SAMPLE_SIZE` (e.g. `15`) —
-every visa question is always kept regardless of sample size, and the full 45
-remains the default when the env var is unset:
+parallelized (`MAX_JUDGE_WORKERS`, default 4).
+
+**Live demo mode (no env vars, no second file).** `--demo` reuses the same
+`golden_qa.jsonl` and the same `run_generation_eval()`, just passed a 5-item
+stride slice of it (one question from each of several categories) instead of
+all 45 - one file, one function, so there's nothing to keep in sync:
 
 ```bash
-EVAL_SAMPLE_SIZE=15 pytest tests/test_eval_generation.py -v
+python -m evaluation.generation_eval --demo
 ```
+
+This finishes in well under a minute (with a warm answer cache) and always
+keeps the same 5 questions. The full 45-question gate
+(`tests/test_eval_generation.py`, `run_generation_eval()` with no args) is
+unaffected - it's what CI/the honesty rule/`generate_report.py` always use.
 
 ---
 
@@ -217,12 +256,14 @@ python -m evaluation.scenario_eval
 ```
 
 Each of the 10 scenarios is its own parametrized pytest test (rather than one
-test looping all 10), so they can be distributed across `pytest-xdist` workers
-since `call_tool` is already mocked and each scenario uses its own isolated
-checkpointer/thread_id:
+test looping all 10) for per-scenario pass/fail reporting. They *can* be
+distributed across `pytest-xdist` workers (`-n auto`), but measured on a real
+run this was actually slower (8.76s vs ~0.7s of real test time) - with 10
+already sub-second, mocked, LLM-free tests, xdist's worker spawn cost dwarfs
+the work being parallelized. Run it plain:
 
 ```bash
-pytest tests/test_eval_scenarios.py -n auto -v
+pytest tests/test_eval_scenarios.py -v
 ```
 
 **What you should see:** 10/10 scenarios match their expected outcome, including
